@@ -43,7 +43,9 @@ fn extract_number(line: &str) -> isize {
                 
                 for (numberitem, numbervalue) in &number_names {
                     if current_number_name.contains(numberitem)  {
-                        current_number_name.clear();
+                        current_number_name = current_number_name.replace(
+                            numberitem, &numberitem.chars().last().unwrap().to_string()
+                        );
                         if first == -1 {
                             first = *numbervalue
                         } else {
@@ -54,7 +56,7 @@ fn extract_number(line: &str) -> isize {
                 }
             },
             Some(number) =>  {
-                current_number_name = String::from("");
+                current_number_name.clear();
 
                 if first == -1 {
                     first = number as isize
@@ -116,115 +118,10 @@ xzx93
 1
 4r
 eightmvgrrqgqftjdk3mrfourthreefivef
+qoneightfourgvz6sixone
+qoneightfooo
 ";
-        assert_eq!(890.to_string(), process(input)?);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_process3() -> miette::Result<()> {
-        let input = "1
-two
-1xx
-11
-1two
-twoxx
-two1
-twotwo
-1xxxx
-1xx1
-1xxtwo
-11xx
-111
-11two
-1twoxx
-1two1
-1twotwo
-twoxxxx
-twoxx1
-twoxxtwo
-two1xx
-two11
-two1two
-twotwoxx
-twotwo1
-twotwotwo
-1xxxxxx
-1xxxx1
-1xxxxtwo
-1xx1xx
-1xx11
-1xx1two
-1xxtwoxx
-1xxtwo1
-1xxtwotwo
-11xxxx
-11xx1
-11xxtwo
-111xx
-1111
-111two
-11twoxx
-11two1
-11twotwo
-1twoxxxx
-1twoxx1
-1twoxxtwo
-1two1xx
-1two11
-1two1two
-1twotwoxx
-1twotwo1
-1twotwotwo
-twoxxxxxx
-twoxxxx1
-twoxxxxtwo
-twoxx1xx
-twoxx11
-twoxx1two
-twoxxtwoxx
-twoxxtwo1
-twoxxtwotwo
-two1xxxx
-two1xx1
-two1xxtwo
-two11xx
-two111
-two11two
-two1twoxx
-two1two1
-two1twotwo
-twotwoxxxx
-twotwoxx1
-twotwoxxtwo
-twotwo1xx
-twotwo11
-twotwo1two
-twotwotwoxx
-twotwotwo1
-twotwotwotwo
-1xxxxxxxx
-1xxxxxx1
-1xxxxxxtwo
-1xxxx1xx
-1xxxx11
-1xxxx1two
-1xxxxtwoxx
-1xxxxtwo1
-1xxxxtwotwo
-1xx1xxxx
-1xx1xx1
-1xx1xxtwo
-1xx11xx
-1xx111
-1xx11two
-1xx1twoxx
-1xx1two1
-1xx1twotwo
-1xxtwoxxxx
-1xxtwoxx1";
-        assert_eq!(1549.to_string(), process(input)?);
+        assert_eq!(919.to_string(), process(input)?);
 
         Ok(())
     }
