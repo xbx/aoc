@@ -33,7 +33,7 @@ pub fn process(
                     break;
             }
         }
-        if(possible == true) {
+        if possible == true {
             total_ids += game.id;
         }
     });
