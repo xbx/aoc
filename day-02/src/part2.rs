@@ -1,6 +1,7 @@
 use crate::custom_error::AocError;
 
 struct Game {
+    #[allow(dead_code)]
     id: isize,
     rounds: Vec<Round>,
 }
