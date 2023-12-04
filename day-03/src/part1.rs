@@ -7,21 +7,32 @@ pub fn process(
 ) -> miette::Result<String, AocError> {
 
     let mut total = 0;
-    let lines: Vec<_> = input.split("\n").collect();
+    
+    
+    let mut lines_string: Vec<String> = vec![];
+    
+    {
+        let lines: Vec<_> = input.split("\n").collect();
+        for line in lines {
+            let mut line_string = String::from(line);
+            line_string.push('.');
+            lines_string.push(line_string);
+        }
+    }
 
-    let first_line = lines[0];
+    let first_line = &lines_string[0];
     let re = Regex::new(".").unwrap();
     let stuff_line = re.replace_all(&first_line, ".");
     
     let mut previous_line: &str = &stuff_line;
     
-    let total_lines = lines.len();
+    let total_lines = lines_string.len();
     for i in 0..(total_lines) {
-        let current_line = &lines[i];
+        let current_line = &lines_string[i];
 
         let next_line: &str;
         if i < (total_lines - 1) {
-            next_line = &lines[i + 1];
+            next_line = &lines_string[i + 1];
         } else { // last line
             next_line = &stuff_line;
         }
@@ -35,7 +46,7 @@ pub fn process(
 
 
 fn parse_line(previous_line: &str, current_line: &str, next_line: &str) -> isize {
-    println!("prev: {}, curr: {}, next: {}", previous_line, current_line, next_line);
+    //println!("prev: [{}] curr: [{}] next: [{}]", previous_line, current_line, next_line);
 
     let mut total = 0;
     let chars: Vec<_> = current_line.chars().collect();
@@ -165,19 +176,11 @@ mod tests {
     #[test]
     fn test_process2() -> miette::Result<()> {
         let input = "
-....*...............*.............*..................965...*.........754..3..657.......................92..........@..838...................
-.....116.....469...498........537..666....622&............237.......*..........*....204...........242.........&...............599=..........
-..............-................../.............283=...........283#.919.........638.*.........452.....*794......204.326...................168
-...........................541........................544.............../183........67..903+........................*....75.512..605........
-860..............*.........*.............455....730....*......................143................@....-.....=...366.......@......*...+59....
-...*..............447....916.....127........+.....*.....60................./....*...............572.658...891...+...300.....674.733.........
-.768................................*.-..........522.28.......870.....-....89./......764*...........................*........%..............
-+768........................................................................................................................................
-..........................................................................................................................................1+
-..........................................................................................................................................1.
+.*...
+..562
 ";
         let output = process(input.trim());
-        assert_eq!(22870.to_string(), output?);
+        assert_eq!(562.to_string(), output?);
 
         Ok(())
     }
