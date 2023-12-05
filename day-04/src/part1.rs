@@ -23,6 +23,11 @@ fn parse_line(line: &str) -> isize {
     let winning = numbers.0;
     let have = numbers.1;
     
+    // let txt: Vec<_> = winning.iter().map(|i| i.to_string()).collect();
+    // let txt2: Vec<_> = have.iter().map(|i| i.to_string()).collect();
+
+    // println!("{} | {}", txt.join(" "), txt2.join(" "));
+
     let mut points = 0;
     for winner in winning {
         let won = have.get(&winner);
@@ -44,12 +49,12 @@ fn parse_line(line: &str) -> isize {
 fn get_numbers(line: &str) -> (HashSet<isize>, HashSet<isize>) {
     let re: Regex = Regex::new(" +").expect("regex err");
     let card_info: Vec<_> = line.split(": ").collect();
-    let both_sides: Vec<_> = card_info[1].split(" | ").collect();
+    let both_sides: Vec<_> = card_info[1].trim().split(" | ").collect();
 
-    let winning_iter = re.split(both_sides[0]);
+    let winning_iter = re.split(both_sides[0].trim());
     let winning_numbers = winning_iter.map(|num| parse_number(num));
 
-    let have_iter = re.split(both_sides[1]);
+    let have_iter = re.split(both_sides[1].trim());
     let have_numbers = have_iter.map(|num| parse_number(num));
 
     let winning: HashSet<isize> = HashSet::from_iter(winning_numbers);
