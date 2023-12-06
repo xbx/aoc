@@ -11,3 +11,4 @@ miette = { version = "5.10", features = ["fancy"] }
 thiserror = "1.0.50"
 tracing-subscriber = "0.3.18"
 regex = "1.10.2"
+range-collections = "0.4.5"

@@ -1,80 +1,107 @@
+use range_collections::{RangeSet2, RangeSet};
+
 use crate::custom_error::AocError;
-use std::collections::HashSet;
-use regex::Regex;
+ struct Mapping {
+    source_category: isize,
+    destination_cagegory: isize,
+    range: isize,
+ }
 
 #[tracing::instrument]
 pub fn process(
     input: &str,
 ) -> miette::Result<String, AocError> {
+    let sections: Vec<_> = input.split("\n\n").collect();
+    let seeds_all: Vec<_> = sections[0].split(": ").collect::<Vec<_>>()[1].split(" ").collect();
+    let mappings = parse_mappings(&sections[1..]);
+    
+    let mut min_number = std::isize::MAX;
+    for seed_info in seeds_all.chunks(2) {
+        let seed = parse_number(seed_info[0]);
+        let seed_range = parse_number(seed_info[1]);
+        // println!("new seed: {}", seed);
 
-    let mut lines: Vec<(usize, &str)> = input.split("\n").map(|line| {
-        (1, line)
-    }).collect();
+        let mut matching_mappings: Vec<(isize, isize)> = vec![(seed, seed_range)];
+    
+        for sub_mappings in &mappings {
+            
+            let mut new_matching_mappings: Vec<(isize, isize)> = vec![];
+            while matching_mappings.len() > 0 {
+                let maching_mapping = matching_mappings.pop().unwrap();
+                new_matching_mappings.append(
+                    &mut find_matching_mappings(
+                        maching_mapping.0, maching_mapping.1, &sub_mappings
+                    )
+                );
+            }
+            matching_mappings.clear();
+            matching_mappings.append(&mut new_matching_mappings);
+        }
 
-    let mut total = lines.len();
-    let mut result_cache: Vec<usize> = vec![];
+        for mapping in matching_mappings {
+            if mapping.0 < min_number  {
+                min_number = mapping.0
+            }
+        }
+    }
 
-    for i in 0..(lines.len()) {
-        println!("i: {}", i);
-        let current_card_count = lines[i].0;
-        let line = lines[i].1;
+    Ok(String::from(min_number.to_string()))
+}
+
+fn find_matching_mappings(seed_number: isize, range: isize,  mappings: &Vec<Mapping>) -> Vec<(isize, isize)> {
+    //println!("searching for {seed_number}");
+    let seed_range: RangeSet2<isize> = RangeSet::from(seed_number..(seed_number + range - 1));
+
+    let mut matching_mappings: Vec<(isize, isize)> = vec![];
+
+    for mapping in mappings {
+        let mapping_range: RangeSet2<isize> = RangeSet::from(
+            mapping.source_category..(mapping.source_category + mapping.range - 1)
+        );
         
-        for _ in 0..current_card_count {
-            let matching_count: usize;
+        if seed_range.intersects(&mapping_range) {
+            let intersection: RangeSet2<isize> = seed_range.intersection(&mapping_range);
+            let boundaries: &[isize] = intersection.boundaries();
 
-            if result_cache.len() >= i + 1 {
-                matching_count = result_cache[result_cache.len() - 1];
-            } else {
-                matching_count = matching_numbers(&line);
-                result_cache.push(matching_count);
-            }
-             
+            let new_range = boundaries[1] - boundaries[0] + 1;
+            let new_number = boundaries[0] - mapping.source_category + mapping.destination_cagegory;
 
-            for j in 0..matching_count {
-                lines[i+j+1].0 += 1;
-                total += 1;
-            }
+            matching_mappings.push((new_number, new_range));
         }
+    };    
+
+    if matching_mappings.len() > 0 {
+        matching_mappings
+    } else {
+        vec![(seed_number, range)]
+    }
+}
+
+fn parse_mappings<'a>(mappings_txt: &[&str]) -> Vec<Vec<Mapping>> {
+    let mut mappings: Vec<Vec<Mapping>> = vec![];
+
+    for mapping_txt in mappings_txt {
+        let mut sub_mappings: Vec<Mapping> = vec![];
+        let slice_1: Vec<_> = mapping_txt.split(":\n").collect();
+
+        let number_lines: Vec<_> = slice_1[1].split("\n").collect();
+
+        for number_line in number_lines {
+            let numbers: Vec<_> = number_line.split(" ").collect();
+            sub_mappings.push(
+                Mapping {
+                    source_category: parse_number(&numbers[1]),
+                    destination_cagegory: parse_number(&numbers[0]),
+                    range: parse_number(&numbers[2]),
+                }
+            );
+        }
+        mappings.push(sub_mappings);        
     }
 
-    Ok(total.to_string())
+    mappings
 }
 
-fn matching_numbers(line: &str) -> usize {
-    let numbers = get_numbers(line);
-    let winning = numbers.0;
-    let have = numbers.1;
-
-    let mut matching = 0;
-    for winner in winning {
-        let won = have.get(&winner);
-        match won {
-            None => continue,
-            Some(_) => {
-                matching += 1;
-            }
-        }
-    }
-
-    matching
-}
-
-fn get_numbers(line: &str) -> (HashSet<isize>, HashSet<isize>) {
-    let re: Regex = Regex::new(" +").expect("regex err");
-    let card_info: Vec<_> = line.split(": ").collect();
-    let both_sides: Vec<_> = card_info[1].trim().split(" | ").collect();
-
-    let winning_iter = re.split(both_sides[0].trim());
-    let winning_numbers = winning_iter.map(|num| parse_number(num));
-
-    let have_iter = re.split(both_sides[1].trim());
-    let have_numbers = have_iter.map(|num| parse_number(num));
-
-    let winning: HashSet<isize> = HashSet::from_iter(winning_numbers);
-    let have: HashSet<isize> = HashSet::from_iter(have_numbers);
-
-    (winning, have)
-}
 
 fn parse_number(number_str: &str) -> isize {
     let number_str_trim = number_str.trim();
@@ -84,7 +111,8 @@ fn parse_number(number_str: &str) -> isize {
         -1
     }
 }
-
+//621354867
+//621354867
 
 #[cfg(test)]
 mod tests {
@@ -93,15 +121,42 @@ mod tests {
     #[test]
     fn test_process() -> miette::Result<()> {
         let input = "
-Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
-Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19
-Card 3:  1 21 53 59 44 | 69 82 63 72 16 21 14  1
-Card 4: 41 92 73 84 69 | 59 84 76 51 58  5 54 83
-Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
-Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11
+seeds: 79 14 55 13
+
+seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15
+
+fertilizer-to-water map:
+49 53 8
+0 11 42
+42 0 7
+57 7 4
+
+water-to-light map:
+88 18 7
+18 25 70
+
+light-to-temperature map:
+45 77 23
+81 45 19
+68 64 13
+
+temperature-to-humidity map:
+0 69 1
+1 0 69
+
+humidity-to-location map:
+60 56 37
+56 93 4
 ";
         let output = process(input.trim());
-        assert_eq!(30.to_string(), output?);
+        assert_eq!(46.to_string(), output?);
 
         Ok(())
     }
