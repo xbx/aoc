@@ -77,7 +77,7 @@ fn find_matching_mappings(seed_number: isize, range: isize,  mappings: &Vec<Mapp
     }
 }
 
-fn parse_mappings<'a>(mappings_txt: &[&str]) -> Vec<Vec<Mapping>> {
+fn parse_mappings(mappings_txt: &[&str]) -> Vec<Vec<Mapping>> {
     let mut mappings: Vec<Vec<Mapping>> = vec![];
 
     for mapping_txt in mappings_txt {
