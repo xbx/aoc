@@ -143,6 +143,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "day-06"
+version = "0.1.0"
+dependencies = [
+ "custom_error",
+ "miette",
+ "range-collections",
+ "regex",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "errno"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
