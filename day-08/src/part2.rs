@@ -1,177 +1,121 @@
-use std::{fmt, cmp::Ordering, collections::HashMap};
+use std::{fmt, collections::HashMap};
 
 use crate::custom_error::AocError;
 
-#[derive(Eq)]
-struct Hand {
-    hand: Vec<char>,
-    rank: usize,
-    bid: usize,
-    values: HashMap<char, usize>
+struct Step {
+    name: String,
+    left: String,
+    right: String
 }
 
-impl Ord for Hand {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.rank != other.rank {
-            self.rank.cmp(&other.rank)
-        } else {
-            for i in 0..self.hand.len() {
-                if self.hand[i] == other.hand[i] {
-                    continue
-                } else {
-                    return self.values[&self.hand[i]].cmp(&other.values[&other.hand[i]])
-                }
-            }
-            return self.hand[0].cmp(&other.hand[0])
-        }
-    }
-}
-
-impl PartialOrd for Hand {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for Hand {
-    fn eq(&self, other: &Self) -> bool {
-        self.rank == other.rank
-    }
-}
-
-impl Hand {
-    pub fn create(hand: Vec<char>, bid: usize,) -> Self {
-        let rank = Self::calculate_rank(&hand);
-        let values = HashMap::from([
-            ('A', 13),
-            ('K', 12),
-            ('Q', 11),
-            ('T', 9),
-            ('9', 8),
-            ('8', 7),
-            ('7', 6),
-            ('6', 5),
-            ('5', 4),
-            ('4', 3),
-            ('3', 2),
-            ('2', 1),
-            ('J', 0),
-        ]);
-
-        Self {
-            hand, rank, bid, values
-        }
-    }
-
-    fn calculate_rank(hand: &Vec<char>) -> usize {
-        let mut sorted: Vec<char> = vec![];
-        
-        hand.iter().for_each(|c| {
-            sorted.push(*c);
-        });
-
-        sorted.sort();
-
-        let mut count: usize = 0;
-        let mut curr_char = sorted[0];
-        let mut summary: Vec<usize> = vec![];
-        let mut jokers = 0;
-
-        for char in &sorted {
-            if *char == 'J' {
-                jokers += 1;
-            }
-            if *char == curr_char {
-                count += 1
-            } else {
-                summary.push(count);
-                count = 1;
-            }
-            curr_char = *char;
-        }
-        summary.push(count);
-        summary.sort();
-
-        if jokers > 0 {
-            let joker_index = summary.iter().position(|x| *x == jokers).unwrap();
-            summary.remove(joker_index);
-            if summary.len() > 0 {
-                let mut last = summary.pop().unwrap();
-                last += jokers;
-                summary.push(last);
-            } else {
-                summary.push(jokers);
-            }
-            
-            summary.sort();
-        }
-
-        return if summary == vec![5] {
-            7
-        } else if summary == vec![1, 4] {
-            6
-        } else if summary == vec![2, 3] {
-            5
-        } else if summary == vec![1, 1, 3] {
-            4
-        } else if summary == vec![1, 2, 2] {
-            3
-        } else if summary == vec![1, 1, 1, 2] {
-            2
-        } else if summary == vec![1, 1, 1, 1, 1] {
-            1
-        } else {
-            panic!("unknown value");
-        }
-    }
-}
-
-impl std::fmt::Display for Hand {
+impl std::fmt::Display for Step {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let hand: String = self.hand.iter().collect();
-        write!(f, "{} => ({}, {})", self.rank, hand, self.bid)
+        write!(f, "[{}] l: {} r: {}", self.name, self.left, self.right)
     }
 }
+
 
 #[tracing::instrument]
 pub fn process(
     input: &str,
-) -> miette::Result<String, AocError> {
-    let mut total_winnings = 0;
-    
-    let lines: Vec<_> = input.split("\n").collect();
-    let mut hands: Vec<Hand> = vec![];
+) -> miette::Result<String, AocError> { 
+    let sections: Vec<_> = input.split("\n\n").collect();
 
-    for line in lines {
-        hands.push(parse_line(line));
-    }
+    let directions: Vec<_> = sections[0].chars().collect();
 
-    hands.sort_by(|a, b| a.cmp(b));
+    let steps = parse_steps(sections[1].split("\n").collect());
 
-    let mut current_level = 1;
-    let mut current_hand = &hands[0];
+    let mut step_counts: Vec<usize> = vec![];
 
-    for hand in &hands {
-        if !hand.cmp(&current_hand).is_eq() {
-            current_level += 1
+    steps.iter().for_each(|step| {
+        if step.1.name.ends_with('A') {
+            step_counts.push(calculate_total_steps(&directions, &steps, &step.1.name))
         }
-        total_winnings += current_level * hand.bid;
-        current_hand = hand;
+    });
+
+    let mut total_steps = 1;
+    for step_count in step_counts {
+        total_steps = lcm(total_steps, step_count)
     }
     
-    Ok(total_winnings.to_string())
+    Ok(total_steps.to_string())
 }
 
-fn parse_line(line: &str) -> Hand {
-    let sides: Vec<_> = line.split(" ").collect();
-    let hand = sides[0].chars().collect();
-    Hand::create(
-        hand,
-        parse_number(&sides[1]),
-    )
+fn lcm(first: usize, second: usize) -> usize {
+    first * second / gcd(first, second)
 }
 
-fn parse_number(number_str: &str) -> usize {
+fn gcd(first: usize, second: usize) -> usize {
+    let mut max = first;
+    let mut min = second;
+    if min > max {
+        let val = max;
+        max = min;
+        min = val;
+    }
+
+    loop {
+        let res = max % min;
+        if res == 0 {
+            return min;
+        }
+
+        max = min;
+        min = res;
+    }
+}
+
+fn calculate_total_steps(directions: &Vec<char>, steps: &HashMap<String, Step>, step_name: &str) -> usize {
+    let mut total_steps = 0;
+    let mut current_direction_ix = 0;
+    let mut current_step = steps.get(step_name).unwrap();
+
+    loop {
+        //println!("->{}, {current_step}", directions[current_direction_ix]);
+
+        if current_step.name.ends_with('Z') {
+            break;
+        }
+
+        if directions[current_direction_ix] == 'L' {
+            current_step = steps.get(&current_step.left).unwrap();
+        } else {
+            current_step = steps.get(&current_step.right).unwrap();
+        }
+
+        current_direction_ix += 1;
+        if current_direction_ix == directions.len() {
+            current_direction_ix = 0;
+        }
+        
+        total_steps += 1;
+    }
+
+    total_steps
+}
+
+fn parse_steps(step_lines: Vec<&str>) -> HashMap<String, Step> {
+    let mut steps: HashMap<String, Step> = HashMap::new();
+
+    for step_line in step_lines {
+        let parts: Vec<_> = step_line.split(" = ").collect();
+        let name = parts[0].to_string();
+        let name_2 = parts[0].to_string();
+        let left_right: Vec<_> = parts[1].split(", ").collect();
+        let left = left_right[0].replace("(", "");
+        let right = left_right[1].replace(")", "");
+        let step = Step {
+            name, left, right
+        };
+        
+        steps.insert(name_2, step);
+    }
+
+    steps
+}
+
+
+fn _parse_number(number_str: &str) -> usize {
     let number_str_trim = number_str.trim();
     if number_str_trim.len() > 0 {
         number_str_trim.parse::<usize>().unwrap()
@@ -188,16 +132,23 @@ mod tests {
     #[test]
     fn test_process() -> miette::Result<()> {
         let input = "
-32T3K 765
-T55J5 684
-KK677 28
-KTJJT 220
-QQQJA 483
+LR
+
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)
 ";
         let output = process(input.trim());
-        assert_eq!(5905.to_string(), output?);
+        assert_eq!(6.to_string(), output?);
 
         Ok(())
     }
 
 }
+
+
