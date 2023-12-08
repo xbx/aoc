@@ -24,4 +24,4 @@ sed -i '' "s/day_$LAST_NUMBER/day_$NEW_NUMBER/" src/bin/d$NEW_NUMBER-1.rs
 sed -i '' "s/day-$LAST_NUMBER/day-$NEW_NUMBER/" Cargo.toml
 
 cp src/bin/d$NEW_NUMBER-1.rs src/bin/d$NEW_NUMBER-2.rs
-
+sed -i '' "s/part1/part2/" src/bin/d$NEW_NUMBER-2.rs
