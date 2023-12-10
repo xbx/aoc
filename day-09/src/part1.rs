@@ -59,10 +59,10 @@ mod tests {
     #[test]
     fn test_process2() -> miette::Result<()> {
         let input = "
-29 41 51 59 65 69 71 71 69 65 59 51 41 29 15 -1 -19 -39 -61 -85 -111
+15 12 9 6 3 0
 ";
         let output = process(input.trim());
-        assert_eq!(245.to_string(), output?);
+        assert_eq!((-3).to_string(), output?);
 
         Ok(())
     }
