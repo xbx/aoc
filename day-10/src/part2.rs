@@ -37,7 +37,7 @@ fn walk(map: &Vec<Vec<char>>, x: usize, y: usize) -> usize {
     let mut prev_y = 0;
     loop {
         let ((result_x, result_y), direction) = get_next(map, curr_x, curr_y, (prev_x, prev_y));
-        map_clean[result_y][result_x] = map[curr_y][curr_x];
+        map_clean[result_y][result_x] = map[result_y][result_x];
         if map[result_y][result_x] == 'S' {
             break;
         }
@@ -104,7 +104,14 @@ fn walk(map: &Vec<Vec<char>>, x: usize, y: usize) -> usize {
     }
     
     map_clean.iter().for_each(|line| {
-        let str = String::from_iter(line.iter());
+        let str = String::from_iter(line.iter())
+            .replace("F", "┌")
+            .replace("L", "└")
+            .replace("J", "┘")
+            .replace("7", "┐")
+            .replace("-", "─")
+            .replace("|", "│")
+            ;
         println!("{}", str);
     });
 
