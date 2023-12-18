@@ -22,7 +22,7 @@ pub fn process(
     }
 
     let result = walk(&map, s_location.0, s_location.1);
-    Ok(result.to_string())
+    Ok(format!("Slightly incorrect answer, it should be 281: {}", result.to_string()))
 }
 
 fn walk(map: &Vec<Vec<char>>, x: usize, y: usize) -> usize {
