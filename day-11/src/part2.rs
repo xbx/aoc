@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::custom_error::AocError;
 
 #[tracing::instrument]
@@ -5,182 +7,139 @@ pub fn process(
     input: &str,
 ) -> miette::Result<String, AocError> {
     let lines: Vec<_> = input.split("\n").collect();
+    let mut nonempty_cols: HashSet<usize> = HashSet::new();
+    let mut nonempty_rows: HashSet<usize> = HashSet::new();
 
-    let mut s_location: (usize, usize) = (0, 0); // (x, y)
+    let mut map = generate_map(lines, &mut nonempty_rows, &mut nonempty_cols);
+
+    let expanded_map = expand_map(&mut map, &nonempty_rows, &nonempty_cols);
+
+    expanded_map.iter().for_each(|row| {
+        row.iter().for_each(|char| {
+            print!("{}", char);
+        });
+        println!("");
+    });
+
+    let pairs = find_pairs(&expanded_map);
+
+    let result = calculate_distances(&expanded_map, &pairs);
+    
+    Ok(result.to_string())
+}
+
+fn calculate_distances(
+    map: &Vec<Vec<char>>, pairs: &Vec<((usize, usize), (usize, usize))>
+) -> usize {
+    let factor = 1000000 - 1;
+    let mut total = 0;
+
+    pairs.iter().for_each(|(a, b)| {
+        let mut pair_distance = 0;
+        let mut sorted: Vec<_> = vec![a, b];
+        sorted.sort_by_key(|k| k.0);
+
+        let (i, j) = (sorted[0], sorted[1]);
+
+        for row_ix in (i.0 + 1)..(j.0 + 1) {
+            if vec!['R', 'B'].contains(&map[row_ix][i.1]) {
+                pair_distance += factor;
+            } else {
+                pair_distance += 1;
+            }
+        }
+
+        sorted.sort_by_key(|k| k.1);
+        let (i, j) = (sorted[0], sorted[1]);
+
+        for col_ix in (i.1 + 1)..(j.1 + 1) {
+            if vec!['C', 'B'].contains(&map[j.0][col_ix]) {
+                pair_distance += factor;
+            } else {
+                pair_distance += 1;
+            }
+        }
+
+        //println!("{:?}, {:?} => {}", a, b, pair_distance);
+
+        total += pair_distance;
+    });
+
+    total
+}
+
+fn find_pairs(map: &Vec<Vec<char>>) -> Vec<((usize, usize), (usize, usize))> {
+    let mut positions: Vec<(usize, usize)> = vec![];
+
+    for i in 0..map.len() {
+        for j in 0..map[i].len() {
+            if map[i][j] == '#' {
+                positions.push((i, j));
+            }
+        }
+    }
+
+    let mut pairs: Vec<((usize, usize), (usize, usize))> = vec![];
+    for i in 0..positions.len() {
+        for j in 0..positions.len() {
+            if i == j {
+                break
+            }
+            pairs.push((positions[i], positions[j]));
+        }
+    }
+
+    pairs
+}
+
+fn generate_map(lines: Vec<&str>, nonempty_rows: &mut HashSet<usize>, nonempty_cols: &mut HashSet<usize>) -> Vec<Vec<char>> {
     let mut map: Vec<Vec<char>> = vec![];
-    
-    let mut y = 0;
-    for line in lines {
+
+    for (row, line) in lines.iter().enumerate() {
         let chars: Vec<_> = line.chars().collect();
-        match chars.iter().position(|c| *c == 'S') {
-            None => (),
-            Some(x) => s_location = (x, y)
+        chars.iter().enumerate().for_each(|(col, char)| {
+            if *char == '#' {
+                nonempty_cols.insert(col);
+            }
+        });
+
+        if chars.iter().any(|c| *c == '#') {
+            nonempty_rows.insert(row);
         }
+
         map.push(chars);
-        
-        y += 1;
-    }
-
-    let result = walk(&map, s_location.0, s_location.1);
-    Ok(format!("Slightly incorrect answer, it should be 281: {}", result.to_string()))
-}
-
-fn walk(map: &Vec<Vec<char>>, x: usize, y: usize) -> usize {
-    let mut map_clean: Vec<Vec<char>> = vec![];
-    map.iter().for_each(|line| {
-        map_clean.push(line.iter().map(|_| ' ').collect());
-    });
-
-    let mut curr_x = x;
-    let mut curr_y = y ;
-    let mut prev_x = 0;
-    let mut prev_y = 0;
-    loop {
-        let ((result_x, result_y), direction) = get_next(map, curr_x, curr_y, (prev_x, prev_y));
-        map_clean[result_y][result_x] = map[result_y][result_x];
-        if map[result_y][result_x] == 'S' {
-            break;
-        }
-
-        // d -> left
-        // l -> up
-        // u -> right
-        // r -> down
-        match direction {
-            'd' => {
-                if result_x > 0 {
-                    map_clean[result_y][result_x - 1] = mark_interior(&map_clean,result_y, result_x - 1)
-                }
-            },
-            'l' => {
-                if result_y > 0 {
-                    map_clean[result_y - 1][result_x] = mark_interior(&map_clean,result_y - 1, result_x)
-                }
-            },
-            'u' => {
-                if result_x < map_clean[result_y].len() - 1 {
-                    map_clean[result_y][result_x + 1] = mark_interior(&map_clean,result_y, result_x + 1)
-                }
-            },
-            'r' => {
-                if result_y < map_clean.len() - 1 {
-                    map_clean[result_y + 1][result_x] = mark_interior(&map_clean,result_y + 1, result_x) 
-                }
-            },
-            _ => { panic!("no more direction options") }
-        }
-
-        (prev_x, prev_y) = (curr_x, curr_y);
-        (curr_x, curr_y) = (result_x, result_y); 
-    }
-
-    loop {
-        let mut marked = false;
-        for i in 0..map_clean.len() {
-            for j in 0..map_clean[i].len() {
-                if map_clean[i][j] == 'I' {
-                    if j < map_clean[i].len() - 1 && map_clean[i][j+1] == ' ' {
-                        map_clean[i][j+1] = 'I';
-                        marked = true;
-                    }
-                    if i < map_clean.len() - 1 && map_clean[i+1][j] == ' ' {
-                        map_clean[i+1][j] = 'I';
-                        marked = true;
-                    }
-                    if j > 0 && map_clean[i][j-1] == ' ' {
-                        map_clean[i][j-1] = 'I';
-                        marked = true;
-                    }
-                    if i > 0 && map_clean[i-1][j] == ' ' {
-                        map_clean[i-1][j] = 'I';
-                        marked = true;
-                    }
-                }
-            }
-        }
-        if marked == false {
-            break
-        }
     }
     
-    map_clean.iter().for_each(|line| {
-        let str = String::from_iter(line.iter())
-            .replace("F", "┌")
-            .replace("L", "└")
-            .replace("J", "┘")
-            .replace("7", "┐")
-            .replace("-", "─")
-            .replace("|", "│")
-            ;
-        println!("{}", str);
-    });
-
-    let mut interiors = 0;
-    map_clean.iter().for_each(|line| {
-        line.iter().for_each(|c| {
-            if *c == 'I' {
-                interiors += 1;
-            }
-        })
-    });
-    
-    interiors
+    map
 }
 
-fn mark_interior(map_clean: &Vec<Vec<char>>, y: usize, x: usize) -> char {
-    if map_clean[y][x] != ' '  {
-        map_clean[y][x]
-    } else {
-        return 'I'
+fn expand_map<'a>(
+    map: &'a mut Vec<Vec<char>>, nonempty_rows: &'a HashSet<usize>, nonempty_cols: &'a HashSet<usize>
+) -> &'a mut Vec<Vec<char>> {   
+    // R: expanded row
+    // C: expanded col
+    // B: expanded both 
+    for row_ix in (0..map.len()).into_iter().rev() {
+        if !nonempty_rows.contains(&row_ix) {
+            //let newrow: Vec<char> = map[row_ix].iter().map(|c| c.clone()).collect();
+            let newrow: Vec<char> = map[row_ix].iter().map(|_c| 'R').collect();
+            map.insert(row_ix + 1, newrow);
+        }
     }
+
+    for row_ix in 0..map.len() {
+        for col_ix in (0..map[row_ix].len()).into_iter().rev() {
+            if !nonempty_cols.contains(&col_ix) {
+                //let newchar = map[row_ix][col_ix].clone();
+                let newchar = if map[row_ix][col_ix] == 'R' {'B'} else {'C'};
+                map[row_ix].insert(col_ix + 1, newchar);
+            }
+        }
+    }
+
+    map
 }
 
-fn get_next(map: &Vec<Vec<char>>, x: usize, y: usize, previous: (usize, usize)) -> ((usize, usize), char) {
-    let current = map[y][x];
-    
-    if ['L', '-', 'F', 'S'].contains(&current) && x < map[0].len() - 1 {
-        let right = map[y][x + 1];
-        if ['J', '7', '-', 'S'].contains(&right) {
-            let new = (x + 1, y);
-            if new != previous {
-                return (new, 'r');
-            }
-        }
-    }
-
-    if ['F', '|', '7', 'S'].contains(&current) && y < map.len() - 1 {
-        let down = map[y + 1][x];
-        if ['L', 'J', '|', 'S'].contains(&down) {
-            let new = (x, y + 1);
-            if new != previous {
-                return (new, 'd');
-            }
-        }
-    }
-
-    if ['J', '-', '7', 'S'].contains(&current) && x > 0 {
-        let left = map[y][x - 1];
-        if ['L', 'F', '-', 'S'].contains(&left) {
-            let new = (x - 1, y);
-            if new != previous {
-                return (new, 'l');
-            }
-        }
-    }
-
-
-    if ['L', '|', 'J', 'S'].contains(&current) && y > 0 {
-        let up = map[y - 1][x];
-        if ['7', 'F', '|', 'S'].contains(&up) {
-            let new = (x, y - 1);
-            if new != previous {
-                return (new, 'u');
-            }
-        }
-    }
-
-    panic!("no options 🔥")
-}
 
 fn _parse_number(number_str: &str) -> isize {
     let number_str_trim = number_str.trim();
@@ -195,45 +154,25 @@ fn _parse_number(number_str: &str) -> isize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test_process() -> miette::Result<()> {
         let input = "
+...#......
+.......#..
+#.........
 ..........
-.S------7.
-.|F----7|.
-.||OOOO||.
-.||OOOO||.
-.|L-7F-J|.
-.|II||II|.
-.L--JL--J.
+......#...
+.#........
+.........#
 ..........
+.......#..
+#...#.....
 ";
         let output = process(input.trim());
-        assert_eq!(4.to_string(), output?);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_process2() -> miette::Result<()> {
-        let input = "
-FF7FSF7F7F7F7F7F---7
-L|LJ||||||||||||F--J
-FL-7LJLJ||||||LJL-77
-F--JF--7||LJLJIF7FJ-
-L---JF-JLJIIIIFJLJJ7
-|F|F-JF---7IIIL7L|7|
-|FFJF7L7F-JF7IIL---7
-7-L-JL7||F7|L7F-7F7|
-L.L7LFJ|||||FJL7||LJ
-L7JLJL-JLJLJL--JLJ.L
-";
-        let output = process(input.trim());
-        assert_eq!(10.to_string(), output?);
+        assert_eq!(82000210.to_string(), output?);
 
         Ok(())
     }
 
 }
-
-
