@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use regex::Regex;
+
 use crate::custom_error::AocError;
 
 #[tracing::instrument]
@@ -15,64 +17,82 @@ pub fn process(
 
         let parts: Vec<_> = line.split(" ").collect();
         let sequence: Vec<_> = parts[0].chars().collect();
-        let groups: Vec<_> = parts[1].as_bytes().iter().map(|c| _parse_number(&c.to_string())).collect();
+        let groups: Vec<_> = parts[1].split(',')
+            .map(|c| _parse_number(c)).collect();
 
-        result += check(&sequence, &groups);
+        let re_vec: Vec<String> = groups
+        .iter().map(|group| format!("[\\?#]{{{}}}", group.to_string())).into_iter().collect();
+        let re_string = format!("^[\\.\\?]*{}[\\.\\?]*$", re_vec.join("[\\.\\?]{1,}"));
+        let re_groups = Regex::new(&re_string).unwrap();
+
+        let mut visited: HashSet<String> = HashSet::new();
+        
+        let checked = check(&sequence, 0, &groups, &mut visited, &re_groups);
+        println!("[total] {} => {}", &sequence.into_iter().collect::<String>(), checked);
+        result += checked
 
     }
 
     Ok(result.to_string())
 }
 
-fn check(sequence: &Vec<char>, groups: &Vec<isize>) -> usize {
-    let mut result = 0;
+fn check(sequence: &Vec<char>, current_ix: usize, groups: &Vec<usize>, mut visited: &mut HashSet<String>, re_groups: &regex::Regex) -> usize {
+    let sequence_str: String = sequence.into_iter().collect();
+    if visited.contains(&sequence_str) {
+        println!("visited! {}", sequence_str);
+        //return 0
+    } else {
+        visited.insert(sequence_str.clone());
+    }
 
-    if !is_valid(&sequence, &groups) {
+    let mut result = 0;
+    let is_valid_result = is_valid(&sequence, &re_groups);
+
+    //println!("[*] {} => {}", sequence_str, is_valid_result);
+    if !is_valid_result {
         return 0;
     }
 
-    sequence.iter().enumerate().for_each(|(ix, char)| {
-        if *char == '?' {
-            let new_sequence = generate(&sequence, ix);
-
-            result += check(&new_sequence, &groups)
-        }
-    });
-
-    1
-}
-
-fn is_valid(sequence: &Vec<char>, groups: &Vec<isize>) -> bool {
-    let mut found_groups = vec![];
-
-    let previous_char = sequence[0];
-    let mut current_length = 0;
-    for i in 1..sequence.len() {
-        if sequence[i] == '#' {
-            current_length += 1;
-        } else if previous_char == '#' {
-            found_groups.push(current_length);
-            current_length = 0;
-        }
-    }
-    if current_length > 0 {
-        found_groups.push(current_length);
+    if sequence.iter().all(|char| *char != '?' ) {
+        return 1
     }
 
-    true
-}
+    let char = sequence[current_ix];
+    let new_current_ix = current_ix + 1;
+    if char == '?' {
+        let new_sequence_hash = generate(&sequence, current_ix, '#');
+        result += check(&new_sequence_hash, new_current_ix, &groups, &mut visited, re_groups);
 
-fn generate(sequence: &Vec<char>, ix_to_replace: usize) -> Vec<char> {
-    let mut result: Vec<char> = sequence.iter().map(|c| c.clone()).collect();
-    result[ix_to_replace] = '#';
+        let new_sequence_dot = generate(&sequence, current_ix, '.');
+        result += check(&new_sequence_dot, new_current_ix, &groups, &mut visited, re_groups)
+    } else {
+        result += check(&sequence, new_current_ix, &groups, &mut visited, re_groups)
+    }
 
     result
 }
 
-fn _parse_number(number_str: &str) -> isize {
+fn is_valid(sequence: &Vec<char>, re_groups: &regex::Regex) -> bool {
+    let sequence_str: String = sequence.into_iter().collect();
+    re_groups.is_match(&sequence_str)
+}
+
+fn generate(sequence: &Vec<char>, ix_to_replace: usize, replacement: char) -> Vec<char> {
+    let mut result: Vec<char> = sequence.iter().map(|c| c.clone()).collect();
+    result[ix_to_replace] = replacement;
+
+    result
+}
+
+
+fn _parse_digit(number_char: char) -> usize {
+    number_char.to_digit(10).unwrap() as usize
+}
+
+fn _parse_number(number_str: &str) -> usize {
     let number_str_trim = number_str.trim();
     if number_str_trim.len() > 0 {
-        number_str_trim.parse::<isize>().unwrap()
+        number_str_trim.parse::<usize>().unwrap()
     } else {
         0
     }
@@ -84,7 +104,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_process() -> miette::Result<()> {
+    fn test_process2() -> miette::Result<()> {
         let input = "
 ???.### 1,1,3
 .??..??...?##. 1,1,3
@@ -95,6 +115,17 @@ mod tests {
 ";
         let output = process(input.trim());
         assert_eq!(21.to_string(), output?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_process3() -> miette::Result<()> {
+        let input = "
+.??..??...?##. 1,1,3
+";
+        let output = process(input.trim());
+        assert_eq!(4.to_string(), output?);
 
         Ok(())
     }
